@@ -1,0 +1,497 @@
+﻿=== Business.php ===
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Casts\Attribute;
+
+class Business extends Model
+{
+    protected $fillable = [
+        'name', 'description', 'city', 'address', 'latitude', 'longitude',
+    'phone', 'pricing', 'status', 'category_id', 'country_id',
+    'owner_id', 'proposed_by',
+    ];
+
+    protected $casts = [
+        'visible_until' => 'datetime',
+    ];
+    protected $hidden = ['proposed_by'];
+    
+
+protected function averageRating(): Attribute
+{
+    return Attribute::get(
+        fn ($value) => $value === null ? null : round((float) $value, 1)
+    );
+}
+    public function category()
+    {
+        return $this->belongsTo(Category::class);
+    }
+
+    public function country()
+    {
+        return $this->belongsTo(Country::class);
+    }
+
+    public function owner()
+    {
+        return $this->belongsTo(User::class, 'owner_id');
+    }
+
+    public function proposer()
+    {
+        return $this->belongsTo(User::class, 'proposed_by');
+    }
+
+    public function languages()
+    {
+        return $this->belongsToMany(Language::class, 'business_language');
+    }
+
+    public function favoritedBy()
+    {
+        return $this->belongsToMany(User::class, 'favorites')->withTimestamps();
+    }
+
+    public function openingHours()
+    {
+        return $this->hasMany(OpeningHour::class);
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    public function photos()
+    {
+        return $this->hasMany(Photo::class);
+    }
+
+    public function reports()
+    {
+        return $this->hasMany(Report::class);
+    }
+
+    public function claims()
+    {
+        return $this->hasMany(Claim::class);
+    }
+
+    public function conversations()
+    {
+        return $this->hasMany(Conversation::class);
+    }
+    
+}
+=== Category.php ===
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Category extends Model
+{
+    protected $fillable = ['code'];
+
+    protected $appends = ['name'];
+
+    protected $hidden = ['translations'];
+
+    public function translations()
+    {
+        return $this->hasMany(CategoryTranslation::class);
+    }
+
+    public function businesses()
+    {
+        return $this->hasMany(Business::class);
+    }
+
+    // Nom dans la langue de la requÃªte (fr par dÃ©faut), sinon le code
+    public function getNameAttribute()
+    {
+        $languageId = Language::where('code', app()->getLocale())->value('id');
+
+        return $this->translations->firstWhere('language_id', $languageId)?->name
+            ?? $this->translations->firstWhere('language_id', Language::where('code', 'fr')->value('id'))?->name
+            ?? $this->code;
+    }
+}
+=== CategoryTranslation.php ===
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class CategoryTranslation extends Model
+{
+    protected $fillable = ['category_id', 'language_id', 'name'];
+
+    public function category()
+    {
+        return $this->belongsTo(Category::class);
+    }
+
+    public function language()
+    {
+        return $this->belongsTo(Language::class);
+    }
+}
+=== Claim.php ===
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Claim extends Model
+{
+    protected $fillable = ['business_id', 'user_id', 'message'];
+
+    public function business()
+    {
+        return $this->belongsTo(Business::class);
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+}
+=== Conversation.php ===
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Conversation extends Model
+{
+    protected $fillable = ['user_id', 'business_id'];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function business()
+    {
+        return $this->belongsTo(Business::class);
+    }
+
+    public function messages()
+    {
+        return $this->hasMany(Message::class);
+    }
+
+    public function lastMessage()
+    {
+        return $this->hasOne(Message::class)->latestOfMany();
+    }
+
+    // Participants : le client et le propriÃ©taire du commerce
+    public function isParticipant(User $user): bool
+    {
+        return (int) $this->user_id === (int) $user->id
+            || (int) optional($this->business)->owner_id === (int) $user->id;
+    }
+}
+=== Country.php ===
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Country extends Model
+{
+    protected $fillable = ['code'];
+
+    protected $appends = ['name'];
+
+    protected $hidden = ['translations'];
+
+    public function translations()
+    {
+        return $this->hasMany(CountryTranslation::class);
+    }
+
+    public function businesses()
+    {
+        return $this->hasMany(Business::class);
+    }
+
+    // Nom dans la langue de la requÃªte (fr par dÃ©faut), sinon le code
+    public function getNameAttribute()
+    {
+        $languageId = Language::where('code', app()->getLocale())->value('id');
+
+        return $this->translations->firstWhere('language_id', $languageId)?->name
+            ?? $this->translations->firstWhere('language_id', Language::where('code', 'fr')->value('id'))?->name
+            ?? $this->code;
+    }
+}
+=== CountryTranslation.php ===
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class CountryTranslation extends Model
+{
+    protected $fillable = ['country_id', 'language_id', 'name'];
+
+    public function country()
+    {
+        return $this->belongsTo(Country::class);
+    }
+
+    public function language()
+    {
+        return $this->belongsTo(Language::class);
+    }
+}
+=== Language.php ===
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Language extends Model
+{
+    protected $fillable = ['code', 'name'];
+
+    public function users()
+    {
+        return $this->hasMany(User::class);
+    }
+
+    public function categoryTranslations()
+    {
+        return $this->hasMany(CategoryTranslation::class);
+    }
+
+    public function countryTranslations()
+    {
+        return $this->hasMany(CountryTranslation::class);
+    }
+
+    public function businesses()
+    {
+        return $this->belongsToMany(Business::class, 'business_language');
+    }
+}
+=== Message.php ===
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Message extends Model
+{
+    protected $fillable = ['conversation_id', 'user_id', 'content', 'read_at'];
+
+    protected $casts = [
+        'read_at' => 'datetime',
+    ];
+
+    public function conversation()
+    {
+        return $this->belongsTo(Conversation::class);
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+}
+=== OpeningHour.php ===
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class OpeningHour extends Model
+{
+    protected $fillable = ['business_id', 'day_of_week', 'opens_at', 'closes_at'];
+
+    public function business()
+    {
+        return $this->belongsTo(Business::class);
+    }
+}
+=== Photo.php ===
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Photo extends Model
+{
+    protected $fillable = ['business_id', 'user_id', 'review_id', 'file_path', 'status'];
+
+    public function business()
+    {
+        return $this->belongsTo(Business::class);
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function review()
+    {
+        return $this->belongsTo(Review::class);
+    }
+}
+=== Report.php ===
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Report extends Model
+{
+    protected $fillable = ['business_id', 'user_id', 'reason', 'message'];
+
+    public function business()
+    {
+        return $this->belongsTo(Business::class);
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+}
+=== Review.php ===
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Review extends Model
+{
+    protected $fillable = [
+        'business_id', 'user_id', 'rating', 'comment', 'merchant_reply', 'replied_at',
+    ];
+
+    protected $casts = [
+        'replied_at' => 'datetime',
+    ];
+
+    public function business()
+    {
+        return $this->belongsTo(Business::class);
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function photos()
+    {
+        return $this->hasMany(Photo::class);
+    }
+}
+=== User.php ===
+<?php
+
+namespace App\Models;
+
+// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
+
+#[Fillable(['name', 'email', 'password',
+    'phone',
+    'language_id',])]
+#[Hidden(['password', 'remember_token'])]
+class User extends Authenticatable
+{
+    /** @use HasFactory<UserFactory> */
+       use HasApiTokens, HasFactory, Notifiable;
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+        ];
+    }
+
+    public function language()
+    {
+        return $this->belongsTo(Language::class);
+    }
+
+    public function ownedBusinesses()
+    {
+        return $this->hasMany(Business::class, 'owner_id');
+    }
+
+    public function proposedBusinesses()
+    {
+        return $this->hasMany(Business::class, 'proposed_by');
+    }
+
+    public function favoriteBusinesses()
+    {
+        return $this->belongsToMany(Business::class, 'favorites')->withTimestamps();
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    public function photos()
+    {
+        return $this->hasMany(Photo::class);
+    }
+
+    public function reports()
+    {
+        return $this->hasMany(Report::class);
+    }
+
+    public function claims()
+    {
+        return $this->hasMany(Claim::class);
+    }
+
+    public function conversations()
+    {
+        return $this->hasMany(Conversation::class);
+    }
+
+    public function messages()
+    {
+        return $this->hasMany(Message::class);
+    }
+}
