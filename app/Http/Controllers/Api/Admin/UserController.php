@@ -14,8 +14,8 @@ class UserController extends Controller
     public function index(Request $request)
     {
         $data = $request->validate([
-            'status'   => 'sometimes|in:active,' . self::SUSPENDED,
-            'role'     => 'sometimes|in:user,merchant,admin',
+            'status'   => 'sometimes|in:active,pending,' . self::SUSPENDED,
+            'role'     => 'sometimes|in:user,merchant,organizer,admin',
             'q'        => 'sometimes|string|max:100',
             'per_page' => 'sometimes|integer|min:1|max:100',
         ]);

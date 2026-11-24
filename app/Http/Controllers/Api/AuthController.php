@@ -18,7 +18,7 @@ class AuthController extends Controller
             'password' => 'required|string|min:8|confirmed',
             'phone' => 'nullable|string|max:20',
             'language_id' => 'required|exists:languages,id',
-            'account_type' => 'required|in:user,merchant',
+            'account_type' => 'required|in:user,merchant,organizer',
         ]);
 
         $user = User::create([
@@ -29,10 +29,19 @@ class AuthController extends Controller
             'language_id' => $data['language_id'],
         ]);
 
-        // Le rôle est fixé ici, par le serveur : jamais « admin » depuis un formulaire.
+        // Le rôle et le statut sont fixés ici, par le serveur : jamais « admin » depuis un formulaire.
         $user->role = $data['account_type'];
+        $user->status = $data['account_type'] === 'organizer' ? 'pending' : 'active';
         $user->save();
         $user->refresh();
+
+        // Un organisateur doit être validé par l'administrateur avant de se connecter.
+        if ($user->status === 'pending') {
+            return response()->json([
+                'message' => 'Compte créé. Il sera activé après validation par un administrateur.',
+                'user' => $this->userData($user),
+            ], 201);
+        }
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
@@ -52,6 +61,10 @@ class AuthController extends Controller
             throw ValidationException::withMessages([
                 'email' => ['Identifiants incorrects.'],
             ]);
+        }
+
+        if ($user->status === 'pending') {
+            return response()->json(['message' => 'Compte en attente de validation.'], 403);
         }
 
         if ($user->status !== 'active') {

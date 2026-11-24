@@ -44,7 +44,7 @@ class MessageController extends Controller
         return $query->orderByDesc('id')->paginate($data['per_page'] ?? 50);
     }
 
-    // Ligne 29 : envoyer un message
+    // Ligne 29 : envoyer un message (ligne 48 : avec une photo facultative)
     public function store(Request $request, $id)
     {
         [$conversation, $error] = $this->findFor($request, $id);
@@ -52,13 +52,32 @@ class MessageController extends Controller
             return $error;
         }
 
+        // Ligne 49 : un participant bloqué ne peut plus écrire (il peut toujours lire)
+        $blocked = $conversation->participants()
+            ->where('user_id', $request->user()->id)
+            ->where('is_blocked', true)
+            ->exists();
+        if ($blocked) {
+            return response()->json([
+                'message' => 'Vous ne pouvez plus envoyer de message dans cette conversation.',
+            ], 403);
+        }
+
+        // Ligne 48 : content facultatif si une photo est jointe
         $data = $request->validate([
-            'content' => ['required', 'string', 'max:2000'],
+            'content' => ['nullable', 'string', 'max:2000', 'required_without:photo'],
+            'photo'   => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
         ]);
 
+        $imagePath = null;
+        if ($request->hasFile('photo')) {
+            $imagePath = $request->file('photo')->store('message-photos', 'public');
+        }
+
         $message = $conversation->messages()->create([
-            'user_id' => $request->user()->id,
-            'content' => $data['content'],
+            'user_id'    => $request->user()->id,
+            'content'    => $data['content'] ?? null,
+            'image_path' => $imagePath,
         ]);
 
         $conversation->touch();
