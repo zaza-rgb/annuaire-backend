@@ -33,3 +33,5 @@ Thumbs.db
 !package-lock.json
 /routes.txt
 /tests_ligne*.ps1
+/migrations.txt
+/models.txt

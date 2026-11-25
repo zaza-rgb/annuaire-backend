@@ -1,0 +1,11 @@
+[package]
+name = "annuaire-backend"
+version = "1.0.0"
+description = "API Laravel pour l'annuaire Afroponte"
+
+[[services]]
+name = "backend"
+protocol = "http"
+
+[services.ports]
+port = 8000
