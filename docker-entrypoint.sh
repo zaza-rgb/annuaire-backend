@@ -31,5 +31,14 @@ php artisan storage:link --force 2>/dev/null || true
 echo "Execution des migrations..."
 php artisan migrate --force
 
+# Execution des seeders initiaux (langues, categories, pays) s'ils ne sont pas encore presents
+php artisan db:seed --force 2>/dev/null || true
+
+# Creation automatique de l'admin si ADMIN_PASSWORD est renseigne dans l'environnement
+if [ -n "$ADMIN_PASSWORD" ]; then
+    echo "Initialisation du compte administrateur..."
+    php artisan db:seed --class=Database\\Seeders\\AdminSeeder --force 2>/dev/null || true
+fi
+
 echo "Demarrage de l'API Laravel sur le port 8000..."
 exec php artisan serve --host=0.0.0.0 --port=8000
